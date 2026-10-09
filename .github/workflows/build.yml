@@ -21,30 +21,19 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Build engine.exe (PyInstaller)
+      # tools_root = everything the engine needs at runtime (embedded into engine.exe)
+      - name: Assemble tools_root
         shell: pwsh
         run: |
-          pip install pyinstaller
-          New-Item -ItemType Directory -Force src-tauri/resources/engine | Out-Null
-          pyinstaller --onefile --noconsole --name engine --distpath src-tauri/resources/engine engine/engine.py
-
-      - name: Trim JRE with jlink
-        shell: pwsh
-        run: |
+          New-Item -ItemType Directory -Force build_engine/tools_root/tools | Out-Null
+          Copy-Item payload/apktool.jar build_engine/tools_root/
+          Copy-Item payload/baksmali.jar build_engine/tools_root/
+          Copy-Item payload/amapfix.keystore build_engine/tools_root/
+          Copy-Item payload/patches build_engine/tools_root/patches -Recurse
           & "$env:JAVA_HOME\bin\jlink.exe" `
             --add-modules java.base,java.logging,java.xml,java.desktop,java.naming,java.management `
             --strip-debug --no-man-pages --no-header-files --compress=2 `
-            --output src-tauri/resources/jre
-
-      - name: Copy payload
-        shell: pwsh
-        run: |
-          Copy-Item payload/* src-tauri/resources/ -Recurse -Force
-          New-Item -ItemType Directory -Force src-tauri/resources/tools | Out-Null
-
-      - name: Collect Android build-tools (zipalign + apksigner)
-        shell: pwsh
-        run: |
+            --output build_engine/tools_root/jre
           $sdk = $env:ANDROID_HOME
           if (-not (Test-Path "$sdk/build-tools")) {
             yes | & "$sdk/cmdline-tools/latest/bin/sdkmanager.bat" "build-tools;34.0.0"
@@ -52,15 +41,25 @@ jobs:
           $bt = Get-ChildItem "$sdk/build-tools" -Directory |
             Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
           Write-Host "Using build-tools: $($bt.Name)"
-          Copy-Item "$($bt.FullName)/zipalign.exe" src-tauri/resources/tools/
-          Copy-Item "$($bt.FullName)/lib/apksigner.jar" src-tauri/resources/tools/
+          Copy-Item "$($bt.FullName)/zipalign.exe" build_engine/tools_root/tools/
+          Copy-Item "$($bt.FullName)/lib/apksigner.jar" build_engine/tools_root/tools/
 
-      - name: List assembled resources
+      # single self-contained engine.exe (~80MB): Python + JRE + jars + patches + signer
+      - name: Build engine.exe (PyInstaller)
         shell: pwsh
         run: |
-          Get-ChildItem src-tauri/resources -Recurse -File |
-            Select-Object @{n='Path';e={$_.FullName.Replace((Get-Location).Path + '\', '')}}, @{n='MB';e={[math]::Round($_.Length/1MB,2)}} |
-            Format-Table -AutoSize
+          pip install pyinstaller
+          New-Item -ItemType Directory -Force src-tauri/resources/engine | Out-Null
+          pyinstaller --onefile --noconsole --name engine `
+            --add-data "build_engine/tools_root;tools_root" `
+            --distpath src-tauri/resources/engine engine/engine.py
+
+      - name: Smoke test engine.exe
+        shell: pwsh
+        run: |
+          # engine must report its version even with no APK (proves _MEIPASS extraction works)
+          $p = Start-Process -FilePath src-tauri/resources/engine/engine.exe -ArgumentList "--help" -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "engine.exe smoke test failed" }
 
       - uses: dtolnay/rust-toolchain@stable
 

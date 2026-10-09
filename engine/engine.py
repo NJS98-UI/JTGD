@@ -474,17 +474,24 @@ def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, deb
     return rep, out_apk
 
 
+def resolve_tools(explicit):
+    if explicit:
+        return os.path.abspath(explicit)
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, "tools_root")
+
+
 def main():
     ap = argparse.ArgumentParser(description="高德车机版(BYD定制) 一键修复引擎")
     ap.add_argument("apk", help="原版 APK 路径")
-    ap.add_argument("--tools", required=True, help="内置工具根目录")
+    ap.add_argument("--tools", help="内置工具根目录（默认取 PyInstaller 内置的 tools_root）")
     ap.add_argument("--out", help="输出 APK 路径（默认与输入同目录 <原名>_修复版.apk）")
     ap.add_argument("--mode", choices=("auto", "std", "coexist"), default="auto")
     ap.add_argument("--debug-log", action="store_true", help="开启应用调试日志")
     a = ap.parse_args()
 
     global TOOLS, PATCH_DIR, APKTOOL_JAR, BAKSMALI_JAR, KEYSTORE
-    TOOLS = os.path.abspath(a.tools)
+    TOOLS = resolve_tools(a.tools)
     PATCH_DIR = os.path.join(TOOLS, "patches")
     APKTOOL_JAR = os.path.join(TOOLS, "apktool.jar")
     BAKSMALI_JAR = os.path.join(TOOLS, "baksmali.jar")

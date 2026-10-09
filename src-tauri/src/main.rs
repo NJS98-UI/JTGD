@@ -47,11 +47,7 @@ fn run_fix(
     }
 
     let mut cmd = Command::new(&engine);
-    cmd.arg(&apk_path)
-        .arg("--tools")
-        .arg(&res)
-        .arg("--mode")
-        .arg(&mode);
+    cmd.arg(&apk_path).arg("--mode").arg(&mode);
     if debug_log {
         cmd.arg("--debug-log");
     }
