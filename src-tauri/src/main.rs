@@ -40,7 +40,10 @@ fn run_fix(
     let engine = res.join("engine").join("engine.exe");
     if !engine.is_file() {
         *running.0.lock().unwrap() = false;
-        return Err(format!("未找到修复引擎: {}", engine.display()));
+        return Err(format!(
+            "未找到修复引擎: {}\n如果是便携版，请保证 resources 文件夹和 jtgd.exe 在同一目录（或改用安装版）",
+            engine.display()
+        ));
     }
 
     let mut cmd = Command::new(&engine);

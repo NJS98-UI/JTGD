@@ -177,12 +177,14 @@
       const ok = ev.payload === true;
       setRunning(false);
       if (ok) {
+        errBanner.hidden = true;
         setProgress(100, "完成");
         setTimeout(() => { progressWrap.hidden = true; }, 800);
         okPath.textContent = outPath || "";
         okBanner.hidden = !okPath.textContent;
         logLine("✔ 全部完成", "t-ok");
       } else {
+        okBanner.hidden = true;
         errBanner.hidden = false;
         setProgress(100, "失败");
         logLine("✘ 修复失败，请检查日志", "t-err");
