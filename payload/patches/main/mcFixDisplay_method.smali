@@ -9,8 +9,15 @@
 
     move-result v0
 
-    if-nez v0, :cond_mc_wrong
+    if-eqz v0, :cond_mc_stay
 
+    const/4 v1, 0x2
+
+    if-eq v0, v1, :cond_mc_stay
+
+    goto/16 :cond_mc_wrong
+
+    :cond_mc_stay
     const/4 v0, 0x0
 
     sput v0, Lcom/byd/automap/activity/MainActivity;->mcDispFixTries:I
