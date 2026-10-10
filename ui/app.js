@@ -9,6 +9,7 @@
   const runBtn = $("runBtn");
   const modeSeg = $("modeSeg");
   const debugLog = $("debugLog");
+  const voicePack = $("voicePack");
   const progressWrap = $("progressWrap");
   const progressFill = $("progressFill");
   const progressText = $("progressText");
@@ -145,6 +146,7 @@
         apkPath: apkPath,
         mode: mode,
         debugLog: debugLog.checked,
+        voicePack: voicePack.checked,
       });
     } catch (e) {
       logLine(String(e), "t-err");

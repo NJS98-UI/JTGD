@@ -47,6 +47,10 @@ RES_REPLACE = {
 # 共存版：manifest 里 authority 被改成 <新包名>_com.byd.*，但代码里是写死的旧值，需同步重写
 COEXIST_AUTHS = ("com.byd.naviauto.mapprovider", "com.byd.automap.fenceprovider")
 
+# 小团团语音包：包内 com.wzw.voice.VoiceXtt 启动时会找这个资产，
+# 找到后用它替换用户已下载的任意 Mind 格式语音字体 → 导航发音变为小团团
+VOICE_ASSET = "assets/wzw_voice/xiaotuantuan"
+
 
 def detect_coexist_package(apk_path):
     """共存版返回其包名（如 com.autonavi.amapautolite），标准版返回 None。"""
@@ -308,7 +312,7 @@ def patch_coexist_authorities(apk_path, workdir, pkg, java, rep, log):
     return out
 
 
-def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, debug_log, log, mode="auto"):
+def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, debug_log, log, mode="auto", voice_pack=True):
     rep = Report(log)
     os.makedirs(workdir, exist_ok=True)
 
@@ -426,12 +430,21 @@ def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, deb
     for res, rel in RES_REPLACE.items():
         with open(os.path.join(PATCH_DIR, rel), "rb") as f:
             replacements[res] = f.read()
+    voice_src = os.path.join(PATCH_DIR, "assets", "wzw_voice", "xiaotuantuan")
+    if voice_pack:
+        if not os.path.isfile(voice_src):
+            rep.fail("语音包(小团团)", "缺少内置音库文件 " + voice_src)
+            return rep, None
+        with open(voice_src, "rb") as f:
+            replacements[VOICE_ASSET] = f.read()
 
     unsigned = os.path.join(workdir, "unsigned.apk")
     with zipfile.ZipFile(apk_path) as src, \
             zipfile.ZipFile(unsigned, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as dst:
+        written = set()
         for info in src.infolist():
             name = info.filename
+            written.add(name)
             if name == "META-INF/MANIFEST.MF" or \
                     (name.startswith("META-INF/") and name.endswith((".SF", ".RSA", ".DSA", ".EC"))):
                 continue
@@ -447,6 +460,16 @@ def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, deb
             else:
                 data = src.read(name)
             dst.writestr(zi, data)
+        # 语音包音库是新增条目（原包没有），追加写入
+        for name, data in replacements.items():
+            if name in written:
+                continue
+            zi = zipfile.ZipInfo(name, date_time=(2026, 1, 1, 0, 0, 0))
+            zi.compress_type = zipfile.ZIP_DEFLATED
+            zi.external_attr = 0o600 << 16
+            dst.writestr(zi, data)
+    if voice_pack:
+        rep.ok("语音包(小团团)", "(+assets/wzw_voice/xiaotuantuan)")
     rep.ok("重打包(资源.arsc保持STORED)")
 
     # 9) 对齐 + 签名
@@ -488,6 +511,7 @@ def main():
     ap.add_argument("--out", help="输出 APK 路径（默认与输入同目录 <原名>_修复版.apk）")
     ap.add_argument("--mode", choices=("auto", "std", "coexist"), default="auto")
     ap.add_argument("--debug-log", action="store_true", help="开启应用调试日志")
+    ap.add_argument("--no-voice-pack", action="store_true", help="不集成小团团语音包")
     a = ap.parse_args()
 
     global TOOLS, PATCH_DIR, APKTOOL_JAR, BAKSMALI_JAR, KEYSTORE
@@ -524,7 +548,8 @@ def main():
     log = print
     try:
         rep, out = apply_all(a.apk, workdir, out_apk, java, zipalign_exe,
-                             apksigner_cmd, a.debug_log, log, a.mode)
+                             apksigner_cmd, a.debug_log, log, a.mode,
+                             voice_pack=not a.no_voice_pack)
     except Exception:
         import traceback
         log("[失败] 引擎异常")

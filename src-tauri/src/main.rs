@@ -26,6 +26,7 @@ fn run_fix(
     apk_path: String,
     mode: String,
     debug_log: bool,
+    voice_pack: bool,
     running: State<'_, Running>,
 ) -> Result<(), String> {
     {
@@ -50,6 +51,9 @@ fn run_fix(
     cmd.arg(&apk_path).arg("--mode").arg(&mode);
     if debug_log {
         cmd.arg("--debug-log");
+    }
+    if !voice_pack {
+        cmd.arg("--no-voice-pack");
     }
     #[cfg(windows)]
     {
