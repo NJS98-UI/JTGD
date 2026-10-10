@@ -267,6 +267,21 @@ def patch_setting_navi_view(src_text, rep):
     return t
 
 
+def patch_xtt_list(src_text, rep):
+    """语音设置列表首位注入"小团团"条目（cacheAndShowSku 仅在整表刷新时调用 inject）。"""
+    anchor = ("    const-string v5, \"[cacheAndShowSku] type: {?}, categoryId: {?}, "
+              "pageNum: {?}, total: {?}, isFullRefresh: {?}\"\n\n"
+              "    invoke-static {v1, v5, v0}, "
+              "Lcom/autosdk/bussiness/common/utils/Logger;"
+              "->d(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V\n")
+    if src_text.count(anchor) != 1:
+        rep.fail("classes5/语音列表小团团条目", "cacheAndShowSku 结构与预期不符")
+        return None
+    inject = ("\n\n    invoke-static {p1, p6, p5}, "
+              "Lcom/wzw/voice/XttList;->inject(IZLjava/util/ArrayList;)V")
+    return src_text.replace(anchor, anchor + inject, 1)
+
+
 def patch_coexist_authorities(apk_path, workdir, pkg, java, rep, log):
     """共存版：把代码里写死的旧 provider authority 重写为 <新包名>_旧authority。"""
     targets = []
@@ -361,6 +376,7 @@ def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, deb
         "com/autosdk/settings/view/SettingFixTabFitter.smali",
         "com/autosdk/settings/view/SettingFixView.smali",
         "com/autosdk/settings/view/fragments/SettingFixFragment.smali",
+        "com/wzw/voice/XttList.smali",
     ]
     for a in adds:
         write(os.path.join(workdir, "s5", a), read(os.path.join(PATCH_DIR, "classes5", a)))
@@ -385,6 +401,16 @@ def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, deb
     if t2 is None:
         return rep, None
     write(navi, t2)
+
+    # 4b) classes5: 语音列表注入"小团团"条目
+    log("== 应用补丁: 语音列表小团团 ==")
+    pres = os.path.join(workdir, "s5",
+                        "com/autosdk/settings/presenter/SettingAssetPresenter.smali")
+    t = read(pres)
+    t2 = patch_xtt_list(t, rep)
+    if t2 is None:
+        return rep, None
+    write(pres, t2)
 
     # 5) classes8 整文件替换
     log("== 应用补丁: classes8 ==")
