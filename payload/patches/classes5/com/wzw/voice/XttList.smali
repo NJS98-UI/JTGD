@@ -66,27 +66,29 @@
 
     move-result-object v5
 
-    if-eqz v5, :tip_ret
+    if-eqz v5, :chk_dir
 
     invoke-static {v5}, Lcom/wzw/voice/VoiceXtt;->installAsync(Landroid/content/Context;)V
 
-    :tip_ret
+    :chk_dir
+    if-eqz v4, :tip_need
+
+    const-wide v0, 0x2537L
+
+    invoke-virtual {p0, v0, v1}, Lcom/autosdk/bussiness/common/AssetSkuItem;->setId(J)V
+
+    const/4 v0, 0x0
+
+    return v0
+
+    :tip_need
     invoke-static {}, Lk/e/d/e0;->a()Lk/e/d/e0;
 
     move-result-object v5
 
     if-eqz v5, :ret_true
 
-    if-eqz v4, :tip_need
-
-    const-string v6, "\u6b63\u5728\u51c6\u5907\u5c0f\u56e2\u56e2\uff0c\u8bf7\u518d\u70b9\u4e00\u6b21"
-
-    invoke-virtual {v5, v6}, Lk/e/d/e0;->m(Ljava/lang/String;)V
-
-    goto :ret_true
-
-    :tip_need
-    const-string v6, "\u5c0f\u56e2\u56e2\u9700\u8981\u5148\u4e0b\u8f7d\u4efb\u610f\u4e00\u4e2a\u8bed\u97f3\u5305\uff0c\u4e0b\u8f7d\u540e\u518d\u70b9\u5c0f\u56e2\u56e2\u5373\u53ef\u4f7f\u7528"
+    const-string v6, "\u5c0f\u56e2\u56e2\u6b63\u5728\u51c6\u5907\uff0c\u8bf7\u518d\u70b9\u4e00\u6b21"
 
     invoke-virtual {v5, v6}, Lk/e/d/e0;->m(Ljava/lang/String;)V
 
@@ -392,4 +394,57 @@
     move-result-wide v0
 
     return-wide v0
+.end method
+
+.method public static alignPreview(Lcom/autosdk/bussiness/common/AssetSkuItem;)Z
+    .registers 7
+
+    if-eqz p0, :no
+
+    invoke-virtual {p0}, Lcom/autosdk/bussiness/common/AssetSkuItem;->getName()Ljava/lang/String;
+
+    move-result-object v0
+
+    if-eqz v0, :no
+
+    const-string v1, "\u5c0f\u56e2\u56e2"
+
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :no
+
+    invoke-static {}, Lcom/wzw/voice/XttList;->probeCarrier()J
+
+    move-result-wide v0
+
+    const-wide/16 v2, 0x0
+
+    cmp-long v4, v0, v2
+
+    if-lez v4, :nopack
+
+    invoke-virtual {p0, v0, v1}, Lcom/autosdk/bussiness/common/AssetSkuItem;->setId(J)V
+
+    :no
+    const/4 v0, 0x0
+
+    return v0
+
+    :nopack
+    invoke-static {}, Lk/e/d/e0;->a()Lk/e/d/e0;
+
+    move-result-object v5
+
+    if-eqz v5, :ret_true
+
+    const-string v6, "\u5185\u7f6e\u5c0f\u56e2\u56e2\u6682\u4e0d\u652f\u6301\u8bd5\u542c\uff0c\u70b9\u9009\u4f7f\u7528\u5373\u53ef\u751f\u6548"
+
+    invoke-virtual {v5, v6}, Lk/e/d/e0;->m(Ljava/lang/String;)V
+
+    :ret_true
+    const/4 v5, 0x1
+
+    return v5
 .end method

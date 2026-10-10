@@ -1,6 +1,6 @@
 [package]
 name = "jtgd"
-version = "1.0.4"
+version = "1.0.5"
 description = "高德车机版一键修复"
 edition = "2021"
 

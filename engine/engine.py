@@ -307,14 +307,20 @@ def patch_xtt_click(src_text, rep):
 
 
 def patch_xtt_preview(src_text, rep):
-    """onAvatarClick：点"小团团"头像试听时先对齐载体包 id（试听是服务端按 id 下发）。"""
+    """onAvatarClick：点"小团团"头像试听时先对齐载体包 id；
+    无载体（内置 9527）时服务端试听不可用，由 XttList.alignPreview 提示并拦截。"""
     anchor = "    :cond_21\n    const/4 v2, 0x3\n"
     if src_text.count(anchor) != 1:
         rep.fail("classes5/小团团试听", "onAvatarClick 结构与预期不符")
         return None
+    inject = ("\n    invoke-static {p1}, "
+              "Lcom/wzw/voice/XttList;->alignPreview(Lcom/autosdk/bussiness/common/AssetSkuItem;)Z"
+              "\n\n    move-result v2"
+              "\n\n    if-eqz v2, :wzxtp1"
+              "\n\n    return-void"
+              "\n\n    :wzxtp1\n")
     rep.ok("classes5/小团团试听")
-    return src_text.replace(anchor, "    :cond_21\n" + _xtt_align_insert(":wzxtp1", "v2") +
-                            "    const/4 v2, 0x3\n", 1)
+    return src_text.replace(anchor, "    :cond_21\n" + inject + "    const/4 v2, 0x3\n", 1)
 
 
 def patch_xtt_switchvoice(src_text, rep):
@@ -409,7 +415,7 @@ def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, deb
     log("== 解压 APK ==")
     with zipfile.ZipFile(apk_path) as z:
         names = z.namelist()
-        for dex in ("classes5.dex", "classes8.dex", "classes9.dex"):
+        for dex in ("classes5.dex", "classes8.dex", "classes9.dex", "classes25.dex"):
             if dex not in names:
                 rep.fail("APK检查", "缺少 " + dex)
                 return rep, None
@@ -422,7 +428,8 @@ def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, deb
 
     # 2) baksmali
     log("== 反编译 dex ==")
-    for dex, out in (("classes5.dex", "s5"), ("classes8.dex", "s8"), ("classes9.dex", "s9")):
+    for dex, out in (("classes5.dex", "s5"), ("classes8.dex", "s8"), ("classes9.dex", "s9"),
+                     ("classes25.dex", "s25")):
         r = subprocess.run([java, "-jar", BAKSMALI_JAR, "d", os.path.join(workdir, dex),
                             "-o", os.path.join(workdir, out)],
                            capture_output=True, text=True)
@@ -495,8 +502,21 @@ def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, deb
     write(dstp, read(os.path.join(PATCH_DIR, "classes8", "k/e/v/j/h/o.smali")))
     rep.ok("classes8/替换 o.smali (互联帮助页闪退修复)")
 
+    # 5) classes25 整文件替换（VoiceXtt：无载体时播种内置 9527 语音包）
+    log("== 应用补丁: classes25 ==")
+    dstp = os.path.join(workdir, "s25", "com/wzw/voice/VoiceXtt.smali")
+    if not os.path.isfile(dstp):
+        rep.fail("classes25/替换 VoiceXtt.smali", "新版本中不存在该文件")
+        return rep, None
+    write(dstp, read(os.path.join(PATCH_DIR, "classes25", "com/wzw/voice/VoiceXtt.smali")))
+    rep.ok("classes25/替换 VoiceXtt.smali (内置语音包播种)")
+
     # 6) classes9 MainActivity 锚点补丁
     log("== 应用补丁: MainActivity ==")
+    adds9 = ["com/byd/automap/activity/McDispFixCheck.smali"]
+    for a in adds9:
+        write(os.path.join(workdir, "s9", a), read(os.path.join(PATCH_DIR, "classes9", a)))
+        rep.ok("classes9/新增 " + os.path.basename(a))
     ma = os.path.join(workdir, "s9", "com/byd/automap/activity/MainActivity.smali")
     t = read(ma)
     t2 = patch_main_activity(t, rep, debug_log)
@@ -511,7 +531,8 @@ def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, deb
     log("== 回编 dex ==")
     main_cp = os.path.join(PATCH_DIR, "main")
     cp = APKTOOL_JAR + ";" + main_cp
-    for src, out in (("s5", "classes5.dex"), ("s8", "classes8.dex"), ("s9", "classes9.dex")):
+    for src, out in (("s5", "classes5.dex"), ("s8", "classes8.dex"), ("s9", "classes9.dex"),
+                     ("s25", "classes25.dex")):
         r = subprocess.run([java, "-Xmx4g", "-cp", cp, "SmaliAsm",
                             os.path.join(workdir, src), os.path.join(workdir, out), "28"],
                            capture_output=True, text=True)
@@ -519,12 +540,12 @@ def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, deb
             rep.fail("smali 回编 " + out, (r.stderr or r.stdout)[-500:])
             return rep, None
         log(out + " 回编完成")
-    rep.ok("dex回编 x3")
+    rep.ok("dex回编 x4")
 
     # 8) 重打包
     log("== 重打包 ==")
     replacements = {}
-    for dex in ("classes5.dex", "classes8.dex", "classes9.dex") + tuple(extra_dexes):
+    for dex in ("classes5.dex", "classes8.dex", "classes9.dex", "classes25.dex") + tuple(extra_dexes):
         with open(os.path.join(workdir, dex), "rb") as f:
             replacements[dex] = f.read()
     for res, rel in RES_REPLACE.items():
@@ -537,6 +558,20 @@ def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, deb
             return rep, None
         with open(voice_src, "rb") as f:
             replacements[VOICE_ASSET] = f.read()
+        seed_map = {
+            "isstts.cfg": "assets/wzw_voice/xtt_seed/isstts.cfg",
+            "tts__languagedata_embedded.bin":
+                "assets/wzw_voice/xtt_seed/tts/languagedata_embedded.bin",
+            "tts__parameter.cfg": "assets/wzw_voice/xtt_seed/tts/parameter.cfg",
+            "tts__voices__voicefont.bin": "assets/wzw_voice/xtt_seed/tts/voices/voicefont.bin",
+        }
+        for fn, zpath in seed_map.items():
+            p = os.path.join(PATCH_DIR, "assets", "wzw_voice", "xtt_seed", fn)
+            if not os.path.isfile(p):
+                rep.fail("语音包(小团团种子)", "缺少 " + p)
+                return rep, None
+            with open(p, "rb") as f:
+                replacements[zpath] = f.read()
 
     unsigned = os.path.join(workdir, "unsigned.apk")
     with zipfile.ZipFile(apk_path) as src, \
@@ -569,7 +604,7 @@ def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, deb
             zi.external_attr = 0o600 << 16
             dst.writestr(zi, data)
     if voice_pack:
-        rep.ok("语音包(小团团)", "(+assets/wzw_voice/xiaotuantuan)")
+        rep.ok("语音包(小团团)", "(+assets/wzw_voice/xiaotuantuan +xtt_seed x4)")
     rep.ok("重打包(资源.arsc保持STORED)")
 
     # 9) 对齐 + 签名
