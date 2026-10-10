@@ -279,7 +279,68 @@ def patch_xtt_list(src_text, rep):
         return None
     inject = ("\n\n    invoke-static {p1, p6, p5}, "
               "Lcom/wzw/voice/XttList;->inject(IZLjava/util/ArrayList;)V")
+    rep.ok("classes5/语音列表小团团条目")
     return src_text.replace(anchor, anchor + inject, 1)
+
+
+def _xtt_align_insert(label, reg):
+    return ("\n    invoke-static {p1}, "
+            "Lcom/wzw/voice/XttList;->alignItem(Lcom/autosdk/bussiness/common/AssetSkuItem;)Z"
+            "\n\n    move-result %s"
+            "\n\n    if-eqz %s, %s"
+            "\n\n    return-void"
+            "\n\n    %s\n" % (reg, reg, label, label))
+
+
+def patch_xtt_click(src_text, rep):
+    """onStateClick：点"小团团"时先对齐载体包 id；无载体包则提示并拦截后续流程。
+    锚点必须包含 move-result v2（move-result 不能与其 invoke 之间插入指令），
+    插入块用 v7（此时 v3..v8 尚未使用，原方法写前必写）。"""
+    anchor = ("    :cond_d\n    invoke-virtual {p1}, "
+              "Lcom/autosdk/bussiness/common/AssetSkuItem;"
+              "->getEffectiveDownloadStatus()I\n\n    move-result v2\n")
+    if src_text.count(anchor) != 1:
+        rep.fail("classes5/小团团点击切换", "onStateClick 结构与预期不符")
+        return None
+    rep.ok("classes5/小团团点击切换")
+    return src_text.replace(anchor, anchor + _xtt_align_insert(":wzxtc1", "v7"), 1)
+
+
+def patch_xtt_preview(src_text, rep):
+    """onAvatarClick：点"小团团"头像试听时先对齐载体包 id（试听是服务端按 id 下发）。"""
+    anchor = "    :cond_21\n    const/4 v2, 0x3\n"
+    if src_text.count(anchor) != 1:
+        rep.fail("classes5/小团团试听", "onAvatarClick 结构与预期不符")
+        return None
+    rep.ok("classes5/小团团试听")
+    return src_text.replace(anchor, "    :cond_21\n" + _xtt_align_insert(":wzxtp1", "v2") +
+                            "    const/4 v2, 0x3\n", 1)
+
+
+def patch_xtt_switchvoice(src_text, rep):
+    """switchToUseAsset 语音分支：setVoice 的 id 改由 XttList.xttVoiceId 决定
+    （系统语音→-1，小团团→载体包 id，其他→原 id），其余行为不变。"""
+    old = ("    :cond_86\n    if-nez v0, :cond_a5\n\n"
+           "    invoke-virtual {p1}, Lcom/autosdk/bussiness/common/AssetSkuItem;"
+           "->isSystemAsset()Z\n\n"
+           "    move-result v2\n\n"
+           "    if-eqz v2, :cond_8f\n\n"
+           "    goto :goto_93\n\n"
+           "    :cond_8f\n"
+           "    invoke-virtual {p1}, Lcom/autosdk/bussiness/common/AssetSkuItem;"
+           "->getId()J\n\n"
+           "    move-result-wide v4\n\n"
+           "    :goto_93\n")
+    new = ("    :cond_86\n    if-nez v0, :cond_a5\n\n"
+           "    invoke-static {p1}, Lcom/wzw/voice/XttList;"
+           "->xttVoiceId(Lcom/autosdk/bussiness/common/AssetSkuItem;)J\n\n"
+           "    move-result-wide v4\n\n"
+           "    :goto_93\n")
+    if src_text.count(old) != 1:
+        rep.fail("classes5/小团团切换语音", "switchToUseAsset 结构与预期不符")
+        return None
+    rep.ok("classes5/小团团切换语音")
+    return src_text.replace(old, new, 1)
 
 
 def patch_coexist_authorities(apk_path, workdir, pkg, java, rep, log):
@@ -402,7 +463,7 @@ def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, deb
         return rep, None
     write(navi, t2)
 
-    # 4b) classes5: 语音列表注入"小团团"条目
+    # 4b) classes5: 语音列表注入"小团团"条目 + 点击/试听/切换三处钩子
     log("== 应用补丁: 语音列表小团团 ==")
     pres = os.path.join(workdir, "s5",
                         "com/autosdk/settings/presenter/SettingAssetPresenter.smali")
@@ -410,7 +471,20 @@ def apply_all(apk_path, workdir, out_apk, java, zipalign_exe, apksigner_cmd, deb
     t2 = patch_xtt_list(t, rep)
     if t2 is None:
         return rep, None
-    write(pres, t2)
+    t3 = patch_xtt_click(t2, rep)
+    if t3 is None:
+        return rep, None
+    t4 = patch_xtt_preview(t3, rep)
+    if t4 is None:
+        return rep, None
+    write(pres, t4)
+    ctl = os.path.join(workdir, "s5",
+                       "com/autosdk/settings/controller/AssetDownloadController.smali")
+    t = read(ctl)
+    t2 = patch_xtt_switchvoice(t, rep)
+    if t2 is None:
+        return rep, None
+    write(ctl, t2)
 
     # 5) classes8 整文件替换
     log("== 应用补丁: classes8 ==")

@@ -4,10 +4,6 @@
 
 
 # static fields
-.field private static final ASSET:Ljava/lang/String; = "wzw_voice/xiaotuantuan"
-
-.field private static final DESC:Ljava/lang/String; = "\u5c0f\u56e2\u56e2\u8bed\u97f3\u5168\u65b0\u5347\u7ea7\uff01\u6bcf\u5929\u90fd\u6709\u65b0\u5185\u5bb9\uff01"
-
 .field private static final FALLBACK_ID:J = 0x2537L
 
 .field private static final KEY_CARRIER:Ljava/lang/String; = "carrier"
@@ -15,10 +11,6 @@
 .field private static final NAME:Ljava/lang/String; = "\u5c0f\u56e2\u56e2"
 
 .field private static final PREFS:Ljava/lang/String; = "wzw_voice"
-
-.field private static final TAG:Ljava/lang/String; = "XttList"
-
-.field private static final VOICE_DIR:Ljava/lang/String; = "BydAutoMap/assets/voice/9527/wzw"
 
 
 # direct methods
@@ -30,82 +22,153 @@
     return-void
 .end method
 
-.method private static seedFont(Landroid/content/Context;J)V
-    .registers 12
+.method public static alignItem(Lcom/autosdk/bussiness/common/AssetSkuItem;)Z
+    .registers 8
 
-    invoke-virtual {p0}, Landroid/content/Context;->getFilesDir()Ljava/io/File;
+    if-eqz p0, :no
+
+    invoke-virtual {p0}, Lcom/autosdk/bussiness/common/AssetSkuItem;->getName()Ljava/lang/String;
 
     move-result-object v0
+
+    if-eqz v0, :no
+
+    const-string v1, "\u5c0f\u56e2\u56e2"
+
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :no
+
+    invoke-static {}, Lcom/wzw/voice/XttList;->probeCarrier()J
+
+    move-result-wide v0
+
+    const-wide/16 v2, 0x0
+
+    cmp-long v4, v0, v2
+
+    if-lez v4, :nopack
+
+    invoke-virtual {p0, v0, v1}, Lcom/autosdk/bussiness/common/AssetSkuItem;->setId(J)V
+
+    const/4 v0, 0x0
+
+    return v0
+
+    :nopack
+    invoke-static {}, Lcom/wzw/voice/XttList;->hasVoiceDir()Z
+
+    move-result v4
+
+    invoke-static {}, Lk/e/d/g0;->a()Landroid/app/Application;
+
+    move-result-object v5
+
+    if-eqz v5, :tip_ret
+
+    invoke-static {v5}, Lcom/wzw/voice/VoiceXtt;->installAsync(Landroid/content/Context;)V
+
+    :tip_ret
+    invoke-static {}, Lk/e/d/e0;->a()Lk/e/d/e0;
+
+    move-result-object v5
+
+    if-eqz v5, :ret_true
+
+    if-eqz v4, :tip_need
+
+    const-string v6, "\u6b63\u5728\u51c6\u5907\u5c0f\u56e2\u56e2\uff0c\u8bf7\u518d\u70b9\u4e00\u6b21"
+
+    invoke-virtual {v5, v6}, Lk/e/d/e0;->m(Ljava/lang/String;)V
+
+    goto :ret_true
+
+    :tip_need
+    const-string v6, "\u5c0f\u56e2\u56e2\u9700\u8981\u5148\u4e0b\u8f7d\u4efb\u610f\u4e00\u4e2a\u8bed\u97f3\u5305\uff0c\u4e0b\u8f7d\u540e\u518d\u70b9\u5c0f\u56e2\u56e2\u5373\u53ef\u4f7f\u7528"
+
+    invoke-virtual {v5, v6}, Lk/e/d/e0;->m(Ljava/lang/String;)V
+
+    :ret_true
+    const/4 v5, 0x1
+
+    return v5
+
+    :no
+    const/4 v0, 0x0
+
+    return v0
+.end method
+
+.method public static hasVoiceDir()Z
+    .registers 8
+
+    invoke-static {}, Lk/e/d/g0;->a()Landroid/app/Application;
+
+    move-result-object v0
+
+    const/4 v7, 0x0
 
     if-eqz v0, :ret
 
-    new-instance v1, Ljava/io/File;
+    :try_start_0
+    invoke-virtual {v0}, Landroid/content/Context;->getFilesDir()Ljava/io/File;
 
-    const-string v2, "BydAutoMap/assets/voice/9527/wzw"
+    move-result-object v1
 
-    invoke-direct {v1, v0, v2}, Ljava/io/File;-><init>(Ljava/io/File;Ljava/lang/String;)V
-
-    invoke-virtual {v1}, Ljava/io/File;->mkdirs()Z
+    if-eqz v1, :ret
 
     new-instance v2, Ljava/io/File;
 
-    const-string v3, "voicefont.bin"
+    const-string v3, "BydAutoMap/assets/voice"
 
     invoke-direct {v2, v1, v3}, Ljava/io/File;-><init>(Ljava/io/File;Ljava/lang/String;)V
 
-    invoke-virtual {v2}, Ljava/io/File;->exists()Z
+    invoke-virtual {v2}, Ljava/io/File;->listFiles()[Ljava/io/File;
 
-    move-result v3
+    move-result-object v2
 
-    if-eqz v3, :do_copy
+    if-eqz v2, :ret
 
-    return-void
+    array-length v3, v2
 
-    :do_copy
-    invoke-virtual {p0}, Landroid/content/Context;->getAssets()Landroid/content/res/AssetManager;
-
-    move-result-object v0
-
-    const-string v1, "wzw_voice/xiaotuantuan"
-
-    invoke-virtual {v0, v1}, Landroid/content/res/AssetManager;->open(Ljava/lang/String;)Ljava/io/InputStream;
-
-    move-result-object v0
-
-    new-instance v1, Ljava/io/FileOutputStream;
-
-    invoke-direct {v1, v2}, Ljava/io/FileOutputStream;-><init>(Ljava/io/File;)V
-
-    const/16 v3, 0x8000
-
-    new-array v4, v3, [B
+    const/4 v4, 0x0
 
     :loop
-    invoke-virtual {v0, v4}, Ljava/io/InputStream;->read([B)I
+    if-ge v4, v3, :ret
 
-    move-result v3
+    aget-object v5, v2, v4
 
-    if-lez v3, :eof
+    invoke-virtual {v5}, Ljava/io/File;->getName()Ljava/lang/String;
 
-    const/4 v5, 0x0
+    move-result-object v6
 
-    invoke-virtual {v1, v4, v5, v3}, Ljava/io/FileOutputStream;->write([BII)V
+    invoke-static {v6}, Ljava/lang/Long;->parseLong(Ljava/lang/String;)J
+
+    move-result-wide v5
+
+    const-wide/16 v0, 0x0
+
+    cmp-long v1, v5, v0
+
+    if-lez v1, :next
+
+    const/4 v7, 0x1
+
+    return v7
+
+    :next
+    add-int/lit8 v4, v4, 0x1
 
     goto :loop
-
-    :eof
-    invoke-virtual {v1}, Ljava/io/FileOutputStream;->flush()V
-
-    invoke-virtual {v1}, Ljava/io/FileOutputStream;->close()V
-
-    invoke-virtual {v0}, Ljava/io/InputStream;->close()V
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :ret
 
     :ret
-    return-void
+    return v7
 .end method
 
-
-# virtual methods
 .method public static inject(IZLjava/util/ArrayList;)V
     .registers 12
 
@@ -135,33 +198,10 @@
     move-exception v1
 
     :after_install
-    :try_start_1
-    const-string v1, "wzw_voice"
-
-    const/4 v2, 0x0
-
-    invoke-virtual {v0, v1, v2}, Landroid/content/Context;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
-
-    move-result-object v1
-
-    const-string v2, "carrier"
-
-    const-wide/16 v3, -0x1
-
-    invoke-interface {v1, v2, v3, v4}, Landroid/content/SharedPreferences;->getLong(Ljava/lang/String; J)J
+    invoke-static {}, Lcom/wzw/voice/XttList;->probeCarrier()J
 
     move-result-wide v3
-    :try_end_1
-    .catch Ljava/lang/Throwable; {:try_start_1 .. :try_end_1} :catch_1
 
-    goto :after_carrier
-
-    :catch_1
-    move-exception v1
-
-    const-wide/16 v3, -0x1
-
-    :after_carrier
     const-wide/16 v5, 0x0
 
     cmp-long v1, v3, v5
@@ -174,16 +214,6 @@
 
     :no_carrier
     const-wide v7, 0x2537L
-
-    :try_start_2
-    invoke-static {v0, v7, v8}, Lcom/wzw/voice/XttList;->seedFont(Landroid/content/Context;J)V
-    :try_end_2
-    .catch Ljava/lang/Throwable; {:try_start_2 .. :try_end_2} :catch_2
-
-    goto :have_target
-
-    :catch_2
-    move-exception v1
 
     :have_target
     invoke-virtual {p2}, Ljava/util/ArrayList;->iterator()Ljava/util/Iterator;
@@ -241,6 +271,8 @@
 
     const/4 v2, 0x1
 
+    invoke-virtual {v1, v2}, Lcom/autosdk/bussiness/common/AssetSkuItem;->setSystemAsset(Z)V
+
     invoke-virtual {v1, v2}, Lcom/autosdk/bussiness/common/AssetSkuItem;->setMyAsset(Z)V
 
     const/4 v2, 0x4
@@ -269,4 +301,95 @@
     :done
     :ret
     return-void
+.end method
+
+.method public static probeCarrier()J
+    .registers 7
+
+    invoke-static {}, Lk/e/d/g0;->a()Landroid/app/Application;
+
+    move-result-object v0
+
+    const-wide/16 v5, -0x1
+
+    if-eqz v0, :ret
+
+    :try_start_0
+    const-string v1, "wzw_voice"
+
+    const/4 v2, 0x0
+
+    invoke-virtual {v0, v1, v2}, Landroid/content/Context;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
+
+    move-result-object v1
+
+    const-string v2, "carrier"
+
+    const-wide/16 v3, -0x1
+
+    invoke-interface {v1, v2, v3, v4}, Landroid/content/SharedPreferences;->getLong(Ljava/lang/String;J)J
+
+    move-result-wide v3
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :ret
+
+    return-wide v3
+
+    :ret
+    return-wide v5
+.end method
+
+.method public static xttVoiceId(Lcom/autosdk/bussiness/common/AssetSkuItem;)J
+    .registers 6
+
+    if-eqz p0, :syspath
+
+    invoke-virtual {p0}, Lcom/autosdk/bussiness/common/AssetSkuItem;->getName()Ljava/lang/String;
+
+    move-result-object v0
+
+    if-eqz v0, :syspath
+
+    const-string v1, "\u5c0f\u56e2\u56e2"
+
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :syspath
+
+    invoke-static {}, Lcom/wzw/voice/XttList;->probeCarrier()J
+
+    move-result-wide v0
+
+    const-wide/16 v2, 0x0
+
+    cmp-long v4, v0, v2
+
+    if-lez v4, :fb
+
+    return-wide v0
+
+    :fb
+    const-wide v0, 0x2537L
+
+    return-wide v0
+
+    :syspath
+    invoke-virtual {p0}, Lcom/autosdk/bussiness/common/AssetSkuItem;->isSystemAsset()Z
+
+    move-result v0
+
+    if-eqz v0, :normal
+
+    const-wide/16 v0, -0x1
+
+    return-wide v0
+
+    :normal
+    invoke-virtual {p0}, Lcom/autosdk/bussiness/common/AssetSkuItem;->getId()J
+
+    move-result-wide v0
+
+    return-wide v0
 .end method
